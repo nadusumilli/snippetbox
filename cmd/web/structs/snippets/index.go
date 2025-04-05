@@ -1,8 +1,10 @@
 package structs
 
+import "snippetbox/internal/validator"
+
 type SnippetStruct struct {
-	Title       string            `json:"title"`
-	Content     string            `json:"content"`
-	Expires     int               `json:"expires"`
-	FieldErrors map[string]string `json:"field_errors"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	Expires int    `json:"expires"`
+	validator.Validator
 }

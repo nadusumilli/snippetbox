@@ -41,7 +41,10 @@ func NewTemplateCache() (map[string]*template.Template, error) {
 	// match the pattern "./ui/html/pages/*.tmpl". This will essentially gives
 	// us a slice of all the filepaths for our application 'page' templates
 	// like: [ui/html/pages/home.tmpl ui/html/pages/view.tmpl]
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	pattern := filepath.Join(cwd, "../../ui/html/pages/*.tmpl.html")
 	pages, err := filepath.Glob(pattern)
 	if err != nil {
