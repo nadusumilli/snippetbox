@@ -18,6 +18,12 @@ type SnippetModel struct {
 	DB *sql.DB
 }
 
+func NewSnippetModel(db *sql.DB) *SnippetModel {
+	return &SnippetModel{
+		DB: db,
+	}
+}
+
 func (m *SnippetModel) Insert(title, content string, expires int) (int, error) {
 	stmt := `INSERT INTO snippets (title, content, created, expires)
 				VALUES($1, $2, NOW(), NOW() + $3 * INTERVAL '1 DAY') RETURNING id`

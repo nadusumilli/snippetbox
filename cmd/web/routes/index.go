@@ -2,27 +2,25 @@ package routes
 
 import (
 	"net/http"
-	"os"
-	"snippetbox/cmd/web/config"
 	"snippetbox/cmd/web/handlers"
 )
 
-func InitRouteHandlers(app *config.Application, addr *string) {
-	router := http.NewServeMux()
+type Router struct {
+	*http.ServeMux
+}
 
-	router.HandleFunc("GET /", handlers.GetSnippetHome(app))
-	router.HandleFunc("GET /snippet/create", handlers.GetCreateSnippet(app))
-	router.HandleFunc("POST /snippet/create", handlers.PostCreateSnippet(app))
-	router.HandleFunc("PUT /snippet/update", handlers.UpdateSnippetById(app))
-	router.HandleFunc("GET /snippet/view/{id}", handlers.SnippetView(app))
-	router.HandleFunc("GET /snippets", handlers.GetAllSnippets(app))
+// Initialize the routes with the application configuration.
+func NewRouter(app *handlers.Application) http.Handler {
 
-	handlers.LoadStaticFiles(app)(router)
+	router := &Router{
+		ServeMux: http.NewServeMux(),
+	}
 
-	// Declaring the router and starting the server.
-	app.Logger.Info("Starting server on %s", *addr, nil)
-	err := http.ListenAndServe(*addr, router)
+	// Load the static files.
+	app.LoadStaticFiles()(router.ServeMux)
 
-	app.Logger.Error(err.Error())
-	os.Exit(1)
+	// Load Snippet Routes.
+	router.InitSnippetRoutes(app)
+
+	return app.RecoverPanic(app.LogRequest(app.Middlewares.CommonHeaders(router.ServeMux)))
 }

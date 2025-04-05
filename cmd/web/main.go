@@ -2,39 +2,41 @@ package main
 
 import (
 	"flag"
-	"log/slog"
-	"os"
-	"snippetbox/cmd/web/config"
-	"snippetbox/cmd/web/helpers"
+	"net/http"
+	"snippetbox/cmd/web/constants"
+	"snippetbox/cmd/web/handlers"
 	"snippetbox/cmd/web/routes"
-	"snippetbox/internal/models"
 )
 
 func main() {
-	// Database connectiong string for local.
-	connString := "user=web password=snippet@123 dbname=snippetbox sslmode=disable"
 
 	// Getting the address from the command line flag.
-	addr := flag.String("addr", ":4000", "HTTP network address")
-	// Getting the database connection from the command line flag.
-	dsn := flag.String("dsn", connString, "PostgreSQL data source name")
+	addr := flag.String("addr", constants.PORT, "HTTP network address")
+	dsn := flag.String("dsn", constants.DATABASE_CONNECTION_STRING, "PostgreSQL data source name")
+
+	// Parsing the command line flags.
 	flag.Parse()
 
-	// Creating a new logger.
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		AddSource: true,
-	}))
+	// Initialize the app config, logger and database.
+	app := handlers.NewApiConnection(dsn, addr)
 
-	// Setting up the sql connections.
-	db := helpers.SetupDBConn(logger, *dsn)
-	defer db.Close()
+	// Derer the closing of the database if application closes.
+	defer func() {
+		if err := app.DB.Close(); err != nil {
+			app.Logger.Error("Failed to close the database connection", "error", err)
+		}
+	}()
 
-	// Ensuring that the dependencies are passed properly for all the handlers.
-	// Adding loggers and models to the application struct.
-	app := &config.Application{
-		Logger:   logger,
-		Snippets: &models.SnippetModel{DB: db},
+	// initialize the routes for our api's.
+	router := routes.NewRouter(app)
+
+	// Start the server.
+	listenErr := http.ListenAndServe(*addr, router)
+
+	if listenErr != nil {
+		app.Logger.Error("Failed to start the server", "error", listenErr)
 	}
 
-	routes.InitRouteHandlers(app, addr)
+	// Log the server start.
+	app.Logger.Info("Server started", "address", *addr)
 }

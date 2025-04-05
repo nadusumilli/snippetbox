@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 	"path/filepath"
-	"snippetbox/cmd/web/config"
 )
 
 type neuteredFileSystem struct {
@@ -35,7 +34,7 @@ func (nfs neuteredFileSystem) Open(path string) (http.File, error) {
 	return f, nil
 }
 
-func LoadStaticFiles(app *config.Application) func(router *http.ServeMux) {
+func (app *Application) LoadStaticFiles() func(router *http.ServeMux) {
 	return func(router *http.ServeMux) {
 		fileServer := http.FileServer(neuteredFileSystem{http.Dir("./ui/static/")})
 		router.Handle("GET /static/", http.StripPrefix("/static", fileServer))

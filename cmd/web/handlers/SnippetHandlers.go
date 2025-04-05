@@ -3,31 +3,86 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
-	"snippetbox/cmd/web/config"
-	"snippetbox/cmd/web/helpers"
+	structs "snippetbox/cmd/web/structs/snippets"
 	"snippetbox/cmd/web/templates"
 	"snippetbox/internal/models"
 	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
 )
 
-func GetCreateSnippet(app *config.Application) http.HandlerFunc {
+func (app *Application) GetCreateSnippet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Create a new snippet.")
+		data := templates.TemplateData{
+			CurrentYear: time.Now().Year(),
+		}
+
+		app.Render(w, r, http.StatusOK, "create.tmpl.html", &data)
 	}
 }
 
-func PostCreateSnippet(app *config.Application) http.HandlerFunc {
+func (app *Application) PostCreateSnippet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Create a new snippet post.
-		title := "snail"
-		content := "A snail is a small animal with a soft body that moves very slowly and has a spiral-shaped shell on its back."
-		expires := 7
 
-		id, err := app.Snippets.Insert(title, content, expires)
+		err := r.ParseForm()
 		if err != nil {
-			helpers.ServerError(app, err)(w, r)
+			app.InternalServerError(err)(w, r)
+			return
+		}
+
+		expires, err := strconv.Atoi(r.PostForm.Get("expires"))
+		if err != nil {
+			app.BadRequest(errors.New("invalid expires value"))(w, r)
+			return
+		}
+
+		form := structs.SnippetStruct{
+			Title:   r.PostForm.Get("title"),
+			Content: r.PostForm.Get("content"),
+			Expires: expires,
+			FieldErrors: map[string]string{
+				"title":   "",
+				"content": "",
+				"expires": "",
+			},
+		}
+
+		// Check that the title value is not blank and is not more than 100
+		// characters long. If it fails either of those checks, add a message to the
+		// errors map using the field name as the key.
+		if strings.TrimSpace(form.Title) == "" {
+			form.FieldErrors["title"] = "This field cannot be blank"
+		} else if utf8.RuneCountInString(form.Title) > 100 {
+			form.FieldErrors["title"] = "This field cannot be more than 100 characters long"
+		}
+
+		// Check that the Content value isn't blank.
+		if strings.TrimSpace(form.Content) == "" {
+			form.FieldErrors["content"] = "This field cannot be blank"
+		}
+
+		// Check the expires value matches one of the permitted values (1, 7 or
+		// 365).
+		if form.Expires != 1 && form.Expires != 7 && form.Expires != 365 {
+			form.FieldErrors["expires"] = "This field must equal 1, 7 or 365"
+		}
+
+		// If there are any errors, dump them in a plain text HTTP response and
+		// return from the handler.
+		if len(form.FieldErrors) > 0 {
+			data := &templates.TemplateData{
+				CurrentYear: time.Now().Year(),
+				Form:        form,
+			}
+			app.Render(w, r, http.StatusUnprocessableEntity, "create.tmpl.html", data)
+			return
+		}
+
+		id, err := app.Snippets.Insert(form.Title, form.Content, form.Expires)
+		if err != nil {
+			app.InternalServerError(err)(w, r)
 			return
 		}
 
@@ -35,45 +90,48 @@ func PostCreateSnippet(app *config.Application) http.HandlerFunc {
 	}
 }
 
-func GetSnippetHome(app *config.Application) http.HandlerFunc {
+func (app *Application) GetSnippetHome() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		files := []string{
-			"./ui/html/partials/nav.tmpl.html",
-			"./ui/html/pages/base.tmpl.html",
-			"./ui/html/pages/home.tmpl.html",
-		}
-
-		ts, err := template.ParseFiles(files...) // The path should either be relative to the root of the project or absolute path to file.
+		snippets, err := app.Snippets.Latest()
 		if err != nil {
-			helpers.ServerError(app, err)(w, r)
+			app.InternalServerError(err)(w, r)
 			return
 		}
 
-		err = ts.ExecuteTemplate(w, "base", nil)
-		if err != nil {
-			helpers.ServerError(app, err)(w, r)
-		}
+		app.Render(w, r, http.StatusOK, "home.tmpl.html", &templates.TemplateData{
+			CurrentYear: time.Now().Year(),
+			Snippets:    snippets,
+		})
 	}
 }
 
-func UpdateSnippetById(app *config.Application) http.HandlerFunc {
+func (app *Application) UpdateSnippetById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(r.PathValue("id"))
 		if err != nil || id < 1 {
-			http.NotFound(w, r)
+			app.NotFound(err)(w, r)
 			return
 		}
-		fmt.Fprintf(w, "Updating the Snippet with id: %d", id)
+
+		snippets, err := app.Snippets.Latest()
+		if err != nil {
+			app.InternalServerError(err)(w, r)
+			return
+		}
+
+		app.Render(w, r, http.StatusOK, "home.tmpl.html", &templates.TemplateData{
+			Snippets: snippets,
+		})
 	}
 }
 
-func GetSnippetById(app *config.Application) http.HandlerFunc {
+func (app *Application) GetSnippetById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(r.PathValue("id"))
 
 		if err != nil || id < 1 {
-			http.NotFound(w, r)
+			app.NotFound(err)(w, r)
 			return
 		}
 
@@ -81,22 +139,24 @@ func GetSnippetById(app *config.Application) http.HandlerFunc {
 
 		if err != nil {
 			if errors.Is(err, models.ErrNoRecord) {
-				http.NotFound(w, r)
+				app.NotFound(err)(w, r)
 			} else {
-				helpers.ServerError(app, err)(w, r)
+				app.InternalServerError(err)(w, r)
 			}
 			return
 		}
 
-		fmt.Fprintf(w, "%+v", snippet)
+		app.Render(w, r, http.StatusOK, "view.tmpl.html", &templates.TemplateData{
+			Snippet: snippet,
+		})
 	}
 }
 
-func GetAllSnippets(app *config.Application) http.HandlerFunc {
+func (app *Application) GetAllSnippets() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		snippets, err := app.Snippets.Latest()
 		if err != nil {
-			helpers.ServerError(app, err)(w, r)
+			app.InternalServerError(err)(w, r)
 			return
 		}
 
@@ -104,45 +164,27 @@ func GetAllSnippets(app *config.Application) http.HandlerFunc {
 	}
 }
 
-func SnippetView(app *config.Application) http.HandlerFunc {
+func (app *Application) SnippetView() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(r.PathValue("id"))
 		if err != nil || id < 1 {
-			http.NotFound(w, r)
+			app.NotFound(err)(w, r)
 			return
 		}
 
 		snippet, err := app.Snippets.Get(id)
 		if err != nil {
 			if errors.Is(err, models.ErrNoRecord) {
-				http.NotFound(w, r)
+				app.NotFound(err)(w, r)
 			} else {
-				helpers.ServerError(app, err)
+				app.InternalServerError(err)
 			}
 			return
 		}
 
-		files := []string{
-			"./ui/html/partials/nav.tmpl.html",
-			"./ui/html/pages/base.tmpl.html",
-			"./ui/html/pages/view.tmpl.html",
-		}
-
-		ts, err := template.ParseFiles(files...)
-		if err != nil {
-			helpers.ServerError(app, err)
-			return
-		}
-
-		// Create an instance of a templateData struct holding the snippet data.
-		data := templates.TemplateData{
-			Snippet: snippet,
-		}
-
-		// Pass in the templateData struct when executing the template.
-		err = ts.ExecuteTemplate(w, "base", data)
-		if err != nil {
-			helpers.ServerError(app, err)
-		}
+		app.Render(w, r, http.StatusOK, "view.tmpl.html", &templates.TemplateData{
+			Snippet:     snippet,
+			CurrentYear: time.Now().Year(),
+		})
 	}
 }
