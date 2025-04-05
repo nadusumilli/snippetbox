@@ -14,7 +14,8 @@ func InitRouteHandlers(app *config.Application, addr *string) {
 	router.HandleFunc("GET /snippet/create", handlers.GetCreateSnippet(app))
 	router.HandleFunc("POST /snippet/create", handlers.PostCreateSnippet(app))
 	router.HandleFunc("PUT /snippet/update", handlers.UpdateSnippetById(app))
-	router.HandleFunc("GET /snippet/view/{id}", handlers.GetSnippetById(app))
+	router.HandleFunc("GET /snippet/view/{id}", handlers.SnippetView(app))
+	router.HandleFunc("GET /snippets", handlers.GetAllSnippets(app))
 
 	handlers.LoadStaticFiles(app)(router)
 
