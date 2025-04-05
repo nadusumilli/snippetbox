@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 )
 
@@ -34,9 +35,14 @@ func (nfs neuteredFileSystem) Open(path string) (http.File, error) {
 	return f, nil
 }
 
-func (app *Application) LoadStaticFiles() func(router *http.ServeMux) {
-	return func(router *http.ServeMux) {
-		fileServer := http.FileServer(neuteredFileSystem{http.Dir("./ui/static/")})
-		router.Handle("GET /static/", http.StripPrefix("/static", fileServer))
+func (app *Application) LoadStaticFiles(router *http.ServeMux) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		app.Logger.Error("Failed to get current working directory", err)
+		return
 	}
+
+	fileServer := http.FileServer(neuteredFileSystem{http.Dir(filepath.Join(cwd, "../../ui", "static"))})
+	app.Logger.Info("Loading static files from", "file path:", fileServer)
+	router.Handle("GET /static/", http.StripPrefix("/static", fileServer))
 }

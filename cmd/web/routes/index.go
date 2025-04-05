@@ -9,18 +9,20 @@ type Router struct {
 	*http.ServeMux
 }
 
-// Initialize the routes with the application configuration.
 func NewRouter(app *handlers.Application) http.Handler {
+	sessionRouter := &Router{ServeMux: http.NewServeMux()}
+	sessionRouter.InitSnippetRoutes(app)
 
-	router := &Router{
-		ServeMux: http.NewServeMux(),
-	}
+	staticRouter := &Router{ServeMux: http.NewServeMux()}
+	app.LoadStaticFiles(staticRouter.ServeMux)
 
-	// Load the static files.
-	app.LoadStaticFiles()(router.ServeMux)
+	masterMux := http.NewServeMux()
+	masterMux.Handle("/static/", staticRouter.ServeMux)
+	masterMux.Handle("/", app.SessionManager.LoadAndSave(sessionRouter.ServeMux))
 
-	// Load Snippet Routes.
-	router.InitSnippetRoutes(app)
-
-	return app.RecoverPanic(app.LogRequest(app.Middlewares.CommonHeaders(router.ServeMux)))
+	return app.RecoverPanic(
+		app.LogRequest(
+			app.Middlewares.CommonHeaders(masterMux),
+		),
+	)
 }

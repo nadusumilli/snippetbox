@@ -3,8 +3,8 @@ package structs
 import "snippetbox/internal/validator"
 
 type SnippetStruct struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
-	Expires int    `json:"expires"`
+	Title   string `form:"title"`
+	Content string `form:"content"`
+	Expires int    `form:"expires"`
 	validator.Validator
 }

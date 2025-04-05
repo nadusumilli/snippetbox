@@ -230,6 +230,9 @@ button:hover {
     padding: 18px;
     border-top: 1px solid #E4E5E7;
     border-bottom: 1px solid #E4E5E7;
+    text-wrap: auto;
+    overflow-y: auto;
+    max-height: 400px;
 }
 
 .snippet .metadata {

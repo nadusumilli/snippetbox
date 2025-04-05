@@ -11,15 +11,21 @@ import (
 	"snippetbox/cmd/web/middlewares"
 	"snippetbox/cmd/web/templates"
 	"snippetbox/internal/models"
+	"time"
+
+	"github.com/alexedwards/scs/postgresstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-playground/form/v4"
 )
 
 type ApplicationConfig struct {
-	Logger        *slog.Logger
-	Middlewares   *middlewares.Middlewares
-	DB            *sql.DB
-	Snippets      *models.SnippetModel
-	templateCache map[string]*template.Template
-	formDecoder   *form.Decoder
+	Logger         *slog.Logger
+	Middlewares    *middlewares.Middlewares
+	DB             *sql.DB
+	Snippets       *models.SnippetModel
+	TemplateCache  map[string]*template.Template
+	FormDecoder    *form.Decoder
+	SessionManager *scs.SessionManager
 }
 
 func NewApplicationConfigConnection(logger *slog.Logger, dsn *string) *ApplicationConfig {
@@ -33,20 +39,28 @@ func NewApplicationConfigConnection(logger *slog.Logger, dsn *string) *Applicati
 		return nil
 	}
 
+	sessionManager := scs.New()
+	sessionManager.Store = postgresstore.New(db.DB)
+	sessionManager.Lifetime = 12 * time.Hour
+	sessionManager.Cookie.HttpOnly = true
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
+	sessionManager.Cookie.Secure = false // true in production
+
 	// Initialize the config with the database connection, logger and snippets model and return the instance.
 	return &ApplicationConfig{
-		Logger:        logger,
-		DB:            db.DB,
-		Middlewares:   middlewares.NewMiddlewares(),
-		Snippets:      models.NewSnippetModel(db.DB),
-		templateCache: templateCache,
-		formDecoder:   form.NewDecoder(),
+		Logger:         logger,
+		DB:             db.DB,
+		Middlewares:    middlewares.NewMiddlewares(),
+		Snippets:       models.NewSnippetModel(db.DB),
+		TemplateCache:  templateCache,
+		FormDecoder:    form.NewDecoder(),
+		SessionManager: sessionManager,
 	}
 }
 
 func (app *ApplicationConfig) Render(w http.ResponseWriter, r *http.Request, status int, templateName string, data *templates.TemplateData) {
 	// get the template from the cache
-	tmpl, ok := app.templateCache[templateName]
+	tmpl, ok := app.TemplateCache[templateName]
 	if !ok {
 		err := fmt.Errorf("the template %s does not exist", templateName)
 		app.InternalServerError(err)(w, r)
@@ -74,7 +88,7 @@ func (app *ApplicationConfig) DecodePostForm(r *http.Request, dst any) error {
 		return err
 	}
 
-	err := app.formDecoder.Decode(dst, r.PostForm)
+	err = app.FormDecoder.Decode(dst, r.PostForm)
 	if err != nil {
 		var invalidDecoderError *form.InvalidDecoderError
 
