@@ -1,12 +1,21 @@
 package routes
 
-import "snippetbox/cmd/web/handlers"
+import (
+	"net/http"
+	"snippetbox/cmd/web/handlers"
+)
 
-func (router *Router) InitSnippetRoutes(app *handlers.Application) {
-	router.HandleFunc("GET /", app.GetSnippetHome())
-	router.HandleFunc("GET /snippet/create", app.GetCreateSnippet())
-	router.HandleFunc("POST /snippet/create", app.PostCreateSnippet())
-	router.HandleFunc("PUT /snippet/update", app.UpdateSnippetById())
-	router.HandleFunc("GET /snippet/view/{id}", app.GetSnippetById())
-	router.HandleFunc("GET /snippets", app.GetAllSnippets())
+func NewSnippetRouter(app *handlers.Application) http.Handler {
+	r := NewRouter()
+	InitSnippetRoutes(r, app)
+	return app.SessionManager.LoadAndSave(r.Handler())
+}
+
+func InitSnippetRoutes(r *Router, app *handlers.Application) {
+	r.HandleFunc("GET /latest", app.GetSnippetHome())
+	r.HandleFunc("GET /create", app.GetCreateSnippet())
+	r.HandleFunc("POST /create", app.PostCreateSnippet())
+	r.HandleFunc("PUT /update", app.UpdateSnippetById())
+	r.HandleFunc("GET /view/{id}", app.GetSnippetById())
+	r.HandleFunc("GET /list", app.GetAllSnippets())
 }

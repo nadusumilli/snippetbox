@@ -23,6 +23,7 @@ type ApplicationConfig struct {
 	Middlewares    *middlewares.Middlewares
 	DB             *sql.DB
 	Snippets       *models.SnippetModel
+	Users          *models.UserModel
 	TemplateCache  map[string]*template.Template
 	FormDecoder    *form.Decoder
 	SessionManager *scs.SessionManager
@@ -52,13 +53,14 @@ func NewApplicationConfigConnection(logger *slog.Logger, dsn *string) *Applicati
 		DB:             db.DB,
 		Middlewares:    middlewares.NewMiddlewares(),
 		Snippets:       models.NewSnippetModel(db.DB),
+		Users:          models.NewUserModel(db.DB),
 		TemplateCache:  templateCache,
 		FormDecoder:    form.NewDecoder(),
 		SessionManager: sessionManager,
 	}
 }
 
-func (app *ApplicationConfig) Render(w http.ResponseWriter, r *http.Request, status int, templateName string, data *templates.TemplateData) {
+func (app *ApplicationConfig) Render(w http.ResponseWriter, r *http.Request, status int, templateName string, data any) {
 	// get the template from the cache
 	tmpl, ok := app.TemplateCache[templateName]
 	if !ok {

@@ -18,3 +18,13 @@ type ErrorResponse struct {
 	SCODE string                 `json:"scode"`
 	DATA  map[string]interface{} `json:"data,omitempty"`
 }
+
+var (
+	ErrBadRequest      = "Bad Request"
+	ErrCannotBeBlank   = "This field cannot be blank"
+	ErrInvalidEmail    = "This field must be a valid email address"
+	ErrInvalidUsername = "This field must be a valid username"
+	ErrInvalidPassword = "This field must be a valid password"
+	ErrMinChars        = "This field must be more than %d characters long"
+	ErrMaxChars        = "This field must be less than %d characters long"
+)

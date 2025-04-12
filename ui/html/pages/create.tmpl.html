@@ -6,7 +6,7 @@
         <label>Title:</label>
         <!-- Use the `with` action to render the value of .Form.FieldErrors.title
         if it is not empty. -->
-        {{with .Form.FieldErrors.title}}
+        {{with .Form.FieldErrors.Title}}
             <label class='error'>{{.}}</label>
         {{end}}
         <!-- Re-populate the title data by setting the `value` attribute. -->
@@ -16,7 +16,7 @@
         <label>Content:</label>
         <!-- Likewise render the value of .Form.FieldErrors.content if it is not
         empty. -->
-        {{with .Form.FieldErrors.content}}
+        {{with .Form.FieldErrors.Content}}
             <label class='error'>{{.}}</label>
         {{end}}
         <!-- Re-populate the content data as the inner HTML of the textarea. -->
@@ -25,7 +25,7 @@
     <div>
         <label>Delete in:</label>
         <!-- And render the value of .Form.FieldErrors.expires if it is not empty. -->
-        {{with .Form.FieldErrors.expires}}
+        {{with .Form.FieldErrors.Expires}}
             <label class='error'>{{.}}</label>
         {{end}}
         <!-- Here we use the `if` action to check if the value of the re-populated

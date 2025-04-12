@@ -4,8 +4,6 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
-	structs "snippetbox/cmd/web/structs/snippets"
-	"snippetbox/internal/models"
 	"time"
 )
 
@@ -13,12 +11,11 @@ import (
 // any dynamic data that we want to pass to our HTML templates.
 // At the moment it only contains one field, but we'll add more
 // to it as the build progresses.
-type TemplateData struct {
+type TemplateData[T any, M any] struct {
 	CurrentYear int
-	Snippet     models.Snippet
-	Snippets    []models.Snippet
-	Form        structs.SnippetStruct
 	Flash       string
+	Form        *T
+	Data        M
 }
 
 // Create a humanDate function which returns a nicely formatted string
@@ -46,7 +43,7 @@ func NewTemplateCache() (map[string]*template.Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	pattern := filepath.Join(cwd, "../../ui/html/pages/*.tmpl.html")
+	pattern := filepath.Join(cwd, "./ui/html/pages/*.tmpl.html")
 	pages, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil, err
@@ -59,13 +56,13 @@ func NewTemplateCache() (map[string]*template.Template, error) {
 		name := filepath.Base(page)
 
 		// Parse the base template file into a template set.
-		ts, err := template.New(name).Funcs(functions).ParseFiles(filepath.Join(cwd, "../../ui/html/pages/base.tmpl.html"))
+		ts, err := template.New(name).Funcs(functions).ParseFiles(filepath.Join(cwd, "./ui/html/pages/base.tmpl.html"))
 		if err != nil {
 			return nil, err
 		}
 
 		// Call ParseGlob() *on this template set* to add any partials.
-		ts, err = ts.ParseGlob(filepath.Join(cwd, "../../ui/html/partials/*.tmpl.html"))
+		ts, err = ts.ParseGlob(filepath.Join(cwd, "./ui/html/partials/*.tmpl.html"))
 		if err != nil {
 			return nil, err
 		}

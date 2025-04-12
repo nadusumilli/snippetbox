@@ -1,11 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
+	"log/slog"
 	"net/http"
 	"snippetbox/cmd/web/constants"
 	"snippetbox/cmd/web/handlers"
 	"snippetbox/cmd/web/routes"
+	"time"
 )
 
 func main() {
@@ -28,10 +31,25 @@ func main() {
 	}()
 
 	// initialize the routes for our api's.
-	router := routes.NewRouter(app)
+	router := routes.InitRoutes(app)
+
+	// TLS configuration.
+	tlsConfig := &tls.Config{
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
 
 	// Start the server.
-	listenErr := http.ListenAndServe(*addr, router)
+	server := &http.Server{
+		Addr:         *addr,
+		Handler:      router,
+		ErrorLog:     slog.NewLogLogger(app.Logger.Handler(), slog.LevelError),
+		TLSConfig:    tlsConfig,
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	listenErr := server.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 
 	if listenErr != nil {
 		app.Logger.Error("Failed to start the server", "error", listenErr)

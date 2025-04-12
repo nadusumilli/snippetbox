@@ -4,28 +4,26 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	structs "snippetbox/cmd/web/structs/snippets"
-	"snippetbox/cmd/web/templates"
+	structs "snippetbox/cmd/web/structs"
 	"snippetbox/internal/models"
 	"snippetbox/internal/validator"
 	"strconv"
-	"time"
 )
 
 func (app *Application) GetCreateSnippet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data := templates.TemplateData{
-			CurrentYear: time.Now().Year(),
-		}
+		data := NewTemplateData[structs.SnippetStruct, models.Snippet](app, r, nil, structs.SnippetStruct{})
 
-		app.Render(w, r, http.StatusOK, "create.tmpl.html", &data)
+		app.Render(w, r, http.StatusOK, "create.tmpl.html", data)
 	}
 }
 
 func (app *Application) PostCreateSnippet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var form structs.SnippetStruct
+		var form = &structs.SnippetStruct{
+			Validator: validator.New(&models.Snippet{}),
+		}
 
 		err := app.DecodePostForm(r, &form)
 		if err != nil {
@@ -33,16 +31,11 @@ func (app *Application) PostCreateSnippet() http.HandlerFunc {
 			return
 		}
 
-		form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
-		form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
-		form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
-		form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
+		form.Validate()
 
 		if !form.Valid() {
-			data := &templates.TemplateData{
-				CurrentYear: time.Now().Year(),
-				Form:        form,
-			}
+			data := NewTemplateData[structs.SnippetStruct, models.Snippet](app, r, nil, structs.SnippetStruct{})
+			data.Form = form
 			app.Render(w, r, http.StatusUnprocessableEntity, "create.tmpl.html", data)
 			return
 		}
@@ -53,8 +46,7 @@ func (app *Application) PostCreateSnippet() http.HandlerFunc {
 			return
 		}
 
-		// Use the Put() method to add a string value ("Snippet successfully
-		// created!") and the corresponding key ("flash") to the session data.
+		// Set a flash message to the session
 		app.SessionManager.Put(r.Context(), "flash", "Snippet successfully created!")
 
 		http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
@@ -70,10 +62,10 @@ func (app *Application) GetSnippetHome() http.HandlerFunc {
 			return
 		}
 
-		app.Render(w, r, http.StatusOK, "home.tmpl.html", &templates.TemplateData{
-			CurrentYear: time.Now().Year(),
-			Snippets:    snippets,
-		})
+		data := NewTemplateData[structs.SnippetStruct, []models.Snippet](app, r, nil, structs.SnippetStruct{})
+		data.Data = snippets
+
+		app.Render(w, r, http.StatusOK, "home.tmpl.html", data)
 	}
 }
 
@@ -91,9 +83,10 @@ func (app *Application) UpdateSnippetById() http.HandlerFunc {
 			return
 		}
 
-		app.Render(w, r, http.StatusOK, "home.tmpl.html", &templates.TemplateData{
-			Snippets: snippets,
-		})
+		data := NewTemplateData[structs.SnippetStruct, []models.Snippet](app, r, nil, structs.SnippetStruct{})
+		data.Data = snippets
+
+		app.Render(w, r, http.StatusOK, "home.tmpl.html", data)
 	}
 }
 
@@ -117,13 +110,8 @@ func (app *Application) GetSnippetById() http.HandlerFunc {
 			return
 		}
 
-		flash := app.SessionManager.PopString(r.Context(), "flash")
-
-		data := &templates.TemplateData{
-			CurrentYear: time.Now().Year(),
-			Snippet:     snippet,
-			Flash:       flash,
-		}
+		data := NewTemplateData[structs.SnippetStruct, models.Snippet](app, r, nil, structs.SnippetStruct{})
+		data.Data = snippet
 
 		app.Render(w, r, http.StatusOK, "view.tmpl.html", data)
 	}
